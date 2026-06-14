@@ -1,0 +1,55 @@
+name: loopaware
+description: "LoopAware — digital wellness companion that tracks screen-time, detects dopamine loops, and coaches healthier habits."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # State management
+  provider: ^6.1.2
+
+  # Date / number formatting
+  intl: ^0.20.2
+
+  # Typography
+  google_fonts: ^6.2.1
+
+  # Charts
+  fl_chart: ^1.0.0
+
+  # Local persistence
+  shared_preferences: ^2.3.2
+
+  # Android usage statistics
+  app_usage: ^4.0.0
+  permission_handler: ^11.3.1
+
+  # Firebase
+  firebase_core: ^3.14.0
+  firebase_auth: ^5.6.0
+  cloud_firestore: ^5.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/03.jpeg"
+  min_sdk_android: 21
