@@ -44,17 +44,6 @@ lib/
         └── coach/              # Wellness coach chatbot
 ```
 
-## Running the app
-
-1. Install Flutter 3.40+ (Dart 3.11+).
-2. From the project root run `flutter pub get`.
-3. Launch on an Android device or emulator with `flutter run`.
-
-On first launch the app walks through a 3-slide onboarding flow, then
-into sign-in. For instant data, sign in and use the **Settings → Use
-demo data** toggle. On a real device, tap **Settings → Manage usage
-access** and grant the LoopAware row so live screen-time appears.
-
 ## Development roadmap
 
 The full multi-phase plan that shaped this app lives in
