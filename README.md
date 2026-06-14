@@ -1,0 +1,2 @@
+# AI-Digital-Addiction-Detector-app
+LoopAware is a Flutter-based mobile application that analyzes smartphone usage patterns to measure addiction risk, focus quality, sleep impact, and digital burnout. Using on-device behavioral analytics and machine learning techniques, the platform transforms raw screen-time data into actionable wellness insights while maintaining user privacy. The application includes real-time usage tracking, personalized wellness coaching, interactive analytics dashboards, and Firebase-powered authentication and synchronization.
