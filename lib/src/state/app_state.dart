@@ -107,14 +107,24 @@ class AppState extends ChangeNotifier {
     _loadingData = true;
     notifyListeners();
 
-    final result = await _usage.load(days: 14, preferDemo: _useDemoData);
-    _history = result.days;
-    _isLiveData = result.isLive;
-    _prediction =
-        ScoringEngine.evaluate(_history, dailyLimitMinutes: _dailyLimit);
-    _dataLoaded = true;
-    _loadingData = false;
-    notifyListeners();
+    try {
+      final result = await _usage.load(days: 14, preferDemo: _useDemoData);
+      _history = result.days;
+      _isLiveData = result.isLive;
+      _prediction =
+          ScoringEngine.evaluate(_history, dailyLimitMinutes: _dailyLimit);
+      _dataLoaded = true;
+    } catch (error, stack) {
+      // A failed load must never strand the UI: the refresh control is
+      // disabled while loadingData is true, so leaving the flag set would
+      // pin the screen to the loading shimmer with no way back. Clearing it
+      // falls through to the empty state, which offers a working Refresh.
+      debugPrint('Usage refresh failed: $error');
+      debugPrintStack(stackTrace: stack);
+    } finally {
+      _loadingData = false;
+      notifyListeners();
+    }
 
     unawaited(_saveSnapshot());
   }
