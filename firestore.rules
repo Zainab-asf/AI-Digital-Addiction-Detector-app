@@ -1,0 +1,41 @@
+rules_version = '2';
+
+// LoopAware Firestore security rules.
+//
+// These mirror exactly what the client touches (see FirestoreService):
+//   users/{uid}                      -> get + set(merge)
+//   users/{uid}/predictions/{dateKey} -> set
+// Everything else is denied by the default-deny fallthrough.
+//
+// ─────────────────────────────────────────────────────────────────────────
+// BEFORE DEPLOYING, READ THIS.
+//
+// Firebase project `gearup-6cb27` is SHARED with at least one other app
+// (the GearUp Garage project this repo was forked from). These rules cover
+// only LoopAware's collections, so deploying them as-is will DENY access to
+// any collection the sibling app uses. Merge this with that app's rules
+// before running:
+//
+//   firebase deploy --only firestore:rules
+//
+// This file is not deployed automatically by the Vercel build.
+// ─────────────────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // A signed-in user may only touch their own document subtree. Matching
+    // the uid in the path against the token is what stops one account from
+    // reading or writing another account's data; `request.auth != null`
+    // alone would let any signed-in user read every other user's document.
+    match /users/{userId} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == userId;
+
+      match /predictions/{dateKey} {
+        allow read, write: if request.auth != null
+                           && request.auth.uid == userId;
+      }
+    }
+  }
+}
