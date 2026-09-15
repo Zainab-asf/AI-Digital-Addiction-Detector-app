@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
@@ -6,22 +8,34 @@ import 'bar_chart_widget.dart';
 
 /// Donut chart with a legend showing the category breakdown of usage.
 class CategoryPieChart extends StatelessWidget {
-  const CategoryPieChart({
-    super.key,
-    required this.slices,
-    this.size = 180,
-  });
+  const CategoryPieChart({super.key, required this.slices, this.size = 180});
 
   final List<UsageBarItem> slices;
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final total = slices.fold<int>(0, (sum, s) => sum + s.minutes);
     if (total == 0) {
       return SizedBox(height: size);
     }
+
+    // The donut is a fixed size by default, which would starve the legend on
+    // a narrow phone; cap it at roughly half the width we actually get.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final available = constraints.maxWidth;
+        final dim =
+            available.isFinite && available > 0
+                ? math.min(size, available * 0.45)
+                : size;
+        return _buildChart(context, total, dim);
+      },
+    );
+  }
+
+  Widget _buildChart(BuildContext context, int total, double size) {
+    final theme = Theme.of(context);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,

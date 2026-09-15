@@ -22,38 +22,42 @@ class InsightsScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Insights')),
       body: RefreshIndicator(
         onRefresh: () => state.refreshUsage(),
-        child: prediction == null
-            ? ListView(children: [
-                const SizedBox(height: 80),
-                EmptyState(
-                  icon: Icons.lightbulb_outline_rounded,
-                  title: 'No insights yet',
-                  message: 'We need a day of data before we can spot patterns.',
-                  actionLabel: 'Refresh',
-                  onAction: () => state.refreshUsage(),
-                ),
-              ])
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-                children: [
-                  _WellnessHeader(prediction: prediction),
-                  const SizedBox(height: 18),
-                  _MetricsGrid(prediction: prediction),
-                  const SizedBox(height: 24),
-                  SectionHeader(
-                    title: 'What we noticed today',
-                    subtitle:
-                        '${prediction.insights.length} insights · prioritised',
-                  ),
-                  const SizedBox(height: 12),
-                  for (final insight in prediction.prioritisedInsights) ...[
-                    InsightCard(insight: insight),
-                    const SizedBox(height: 12),
+        child:
+            prediction == null
+                ? ListView(
+                  children: [
+                    const SizedBox(height: 80),
+                    EmptyState(
+                      icon: Icons.lightbulb_outline_rounded,
+                      title: 'No insights yet',
+                      message:
+                          'We need a day of data before we can spot patterns.',
+                      actionLabel: 'Refresh',
+                      onAction: () => state.refreshUsage(),
+                    ),
                   ],
-                  const SizedBox(height: 6),
-                  _TalkToCoachButton(),
-                ],
-              ),
+                )
+                : ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+                  children: [
+                    _WellnessHeader(prediction: prediction),
+                    const SizedBox(height: 18),
+                    _MetricsGrid(prediction: prediction),
+                    const SizedBox(height: 24),
+                    SectionHeader(
+                      title: 'What we noticed today',
+                      subtitle:
+                          '${prediction.insights.length} insights · prioritised',
+                    ),
+                    const SizedBox(height: 12),
+                    for (final insight in prediction.prioritisedInsights) ...[
+                      InsightCard(insight: insight),
+                      const SizedBox(height: 12),
+                    ],
+                    const SizedBox(height: 6),
+                    _TalkToCoachButton(),
+                  ],
+                ),
       ),
     );
   }
@@ -88,10 +92,7 @@ class _WellnessHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Overall wellness',
-                  style: theme.textTheme.bodySmall,
-                ),
+                Text('Overall wellness', style: theme.textTheme.bodySmall),
                 const SizedBox(height: 2),
                 Text(
                   prediction.wellnessLabel,
@@ -125,14 +126,42 @@ class _MetricsGrid extends StatelessWidget {
       prediction.sleepImpact,
       prediction.burnoutRisk,
     ];
-    return GridView.count(
-      crossAxisCount: 2,
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.45,
-      children: metrics.map((m) => _MetricTile(metric: m)).toList(),
+    final tiles = metrics.map((m) => _MetricTile(metric: m)).toList();
+
+    Widget pair(Widget left, Widget right) => IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: left),
+          const SizedBox(width: 12),
+          Expanded(child: right),
+        ],
+      ),
+    );
+
+    // Tile height follows its content rather than a fixed aspect ratio, and
+    // below ~360px two tiles side by side leave too little room for the
+    // labels, so they stack instead.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 360) {
+          return Column(
+            children: [
+              for (var i = 0; i < tiles.length; i++) ...[
+                if (i > 0) const SizedBox(height: 12),
+                tiles[i],
+              ],
+            ],
+          );
+        }
+        return Column(
+          children: [
+            pair(tiles[0], tiles[1]),
+            const SizedBox(height: 12),
+            pair(tiles[2], tiles[3]),
+          ],
+        );
+      },
     );
   }
 }
@@ -148,9 +177,10 @@ class _MetricTile extends StatelessWidget {
     final color = metric.severity.color;
     final steady = metric.isSteady;
     final improving = metric.isImproving;
-    final trendIcon = steady
-        ? Icons.remove_rounded
-        : metric.higherIsBetter
+    final trendIcon =
+        steady
+            ? Icons.remove_rounded
+            : metric.higherIsBetter
             ? (improving
                 ? Icons.trending_up_rounded
                 : Icons.trending_down_rounded)
@@ -158,7 +188,9 @@ class _MetricTile extends StatelessWidget {
                 ? Icons.trending_down_rounded
                 : Icons.trending_up_rounded);
     final trendColor =
-        steady ? theme.colorScheme.onSurface.withValues(alpha: 0.6) : (improving ? AppTheme.good : AppTheme.severe);
+        steady
+            ? theme.colorScheme.onSurface.withValues(alpha: 0.6)
+            : (improving ? AppTheme.good : AppTheme.severe);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -222,9 +254,10 @@ class _TalkToCoachButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
-      onPressed: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const CoachScreen()),
-      ),
+      onPressed:
+          () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const CoachScreen())),
       icon: const Icon(Icons.self_improvement_rounded),
       label: const Text('Talk to the wellness coach'),
     );

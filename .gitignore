@@ -45,3 +45,10 @@ app.*.map.json
 /android/app/release
 .vercel
 .env*
+
+# Linux Flutter SDK downloaded by vercel-build.sh (never commit: ~1.5 GB)
+/flutter/
+/flutter.tar.xz
+
+# Kotlin compiler session artifacts
+android/.kotlin/

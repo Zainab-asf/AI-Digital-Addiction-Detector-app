@@ -51,7 +51,8 @@ class DashboardScreen extends StatelessWidget {
       return EmptyState(
         icon: Icons.insights_rounded,
         title: 'No data yet',
-        message: 'Pull to refresh and we will generate today\'s wellness scores.',
+        message:
+            'Pull to refresh and we will generate today\'s wellness scores.',
         actionLabel: 'Refresh',
         onAction: () => state.refreshUsage(),
       );
@@ -63,22 +64,29 @@ class DashboardScreen extends StatelessWidget {
         const SizedBox(height: 14),
         AddictionScoreCard(prediction: prediction),
         const SizedBox(height: 20),
-        _StatRow(prediction: prediction, today: today, limit: state.dailyLimitMinutes),
+        _StatRow(
+          prediction: prediction,
+          today: today,
+          limit: state.dailyLimitMinutes,
+        ),
         const SizedBox(height: 24),
         SectionHeader(
           title: 'Top apps today',
-          subtitle: '${today.apps.length} apps · ${Formatters.duration(today.totalMinutes)} total',
+          subtitle:
+              '${today.apps.length} apps · ${Formatters.duration(today.totalMinutes)} total',
         ),
         const SizedBox(height: 12),
-        ...today.appsByUsage.take(4).map(
-          (app) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: AppUsageCard(
-              usage: app,
-              dailyTotalMinutes: today.totalMinutes,
+        ...today.appsByUsage
+            .take(4)
+            .map(
+              (app) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: AppUsageCard(
+                  usage: app,
+                  dailyTotalMinutes: today.totalMinutes,
+                ),
+              ),
             ),
-          ),
-        ),
         if (prediction.insights.isNotEmpty) ...[
           const SizedBox(height: 14),
           const SectionHeader(
@@ -118,10 +126,7 @@ class _SourceBadge extends StatelessWidget {
               Container(
                 width: 8,
                 height: 8,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
               const SizedBox(width: 6),
               Text(
@@ -153,47 +158,62 @@ class _StatRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final overshoot = today.totalMinutes - limit;
-    final caption = overshoot <= 0
-        ? '${Formatters.duration(-overshoot)} under limit'
-        : '${Formatters.duration(overshoot)} over limit';
+    final caption =
+        overshoot <= 0
+            ? '${Formatters.duration(-overshoot)} under limit'
+            : '${Formatters.duration(overshoot)} over limit';
 
-    return GridView.count(
-      crossAxisCount: 2,
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.18,
+    // Laid out as two intrinsic-height rows rather than a fixed-aspect-ratio
+    // grid: cell height then follows the content instead of the screen width,
+    // so narrow phones and large text scales don't clip the caption.
+    final cards = <Widget>[
+      StatCard(
+        icon: Icons.hourglass_bottom_rounded,
+        label: 'Screen time',
+        value: Formatters.duration(today.totalMinutes),
+        caption: caption,
+        accent: overshoot > 0 ? AppTheme.severe : AppTheme.good,
+      ),
+      StatCard(
+        icon: Icons.touch_app_rounded,
+        label: 'Pickups',
+        value: '${today.pickups}',
+        caption:
+            'avg ${(today.pickups == 0 ? 0 : today.totalMinutes / today.pickups).toStringAsFixed(1)} min/session',
+        accent: AppTheme.tertiary,
+      ),
+      StatCard(
+        icon: Icons.center_focus_strong_rounded,
+        label: prediction.focus.label,
+        value: '${prediction.focus.score}',
+        caption: prediction.focus.severity.label,
+        accent: prediction.focus.severity.color,
+      ),
+      StatCard(
+        icon: Icons.bedtime_rounded,
+        label: 'Sleep impact',
+        value: '${prediction.sleepImpact.score}',
+        caption: '${Formatters.duration(today.nightMinutes)} after 10pm',
+        accent: prediction.sleepImpact.severity.color,
+      ),
+    ];
+
+    Widget row(Widget left, Widget right) => IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: left),
+          const SizedBox(width: 12),
+          Expanded(child: right),
+        ],
+      ),
+    );
+
+    return Column(
       children: [
-        StatCard(
-          icon: Icons.hourglass_bottom_rounded,
-          label: 'Screen time',
-          value: Formatters.duration(today.totalMinutes),
-          caption: caption,
-          accent: overshoot > 0 ? AppTheme.severe : AppTheme.good,
-        ),
-        StatCard(
-          icon: Icons.touch_app_rounded,
-          label: 'Pickups',
-          value: '${today.pickups}',
-          caption:
-              'avg ${(today.pickups == 0 ? 0 : today.totalMinutes / today.pickups).toStringAsFixed(1)} min/session',
-          accent: AppTheme.tertiary,
-        ),
-        StatCard(
-          icon: Icons.center_focus_strong_rounded,
-          label: prediction.focus.label,
-          value: '${prediction.focus.score}',
-          caption: prediction.focus.severity.label,
-          accent: prediction.focus.severity.color,
-        ),
-        StatCard(
-          icon: Icons.bedtime_rounded,
-          label: 'Sleep impact',
-          value: '${prediction.sleepImpact.score}',
-          caption: '${Formatters.duration(today.nightMinutes)} after 10pm',
-          accent: prediction.sleepImpact.severity.color,
-        ),
+        row(cards[0], cards[1]),
+        const SizedBox(height: 12),
+        row(cards[2], cards[3]),
       ],
     );
   }
@@ -214,8 +234,11 @@ class _CoachCta extends StatelessWidget {
           const CircleAvatar(
             backgroundColor: Colors.white24,
             radius: 24,
-            child: Icon(Icons.self_improvement_rounded,
-                color: Colors.white, size: 26),
+            child: Icon(
+              Icons.self_improvement_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -240,9 +263,10 @@ class _CoachCta extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.arrow_forward_rounded, color: Colors.white),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const CoachScreen()),
-            ),
+            onPressed:
+                () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const CoachScreen())),
           ),
         ],
       ),

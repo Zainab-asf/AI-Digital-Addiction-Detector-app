@@ -18,9 +18,10 @@ class AppUsageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final ratio = dailyTotalMinutes == 0
-        ? 0.0
-        : (usage.minutes / dailyTotalMinutes).clamp(0.0, 1.0);
+    final ratio =
+        dailyTotalMinutes == 0
+            ? 0.0
+            : (usage.minutes / dailyTotalMinutes).clamp(0.0, 1.0);
     final percent = (ratio * 100).round();
     final color = usage.category.color;
 
@@ -66,22 +67,31 @@ class AppUsageCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Text(
-                      usage.category.label,
-                      style: theme.textTheme.bodySmall?.copyWith(color: color),
+                    // One flexible run of text so a long category label or a
+                    // four-digit open count ellipsizes instead of overflowing
+                    // the card on narrow screens.
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: usage.category.label,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: color,
+                              ),
+                            ),
+                            TextSpan(
+                              text: '  •  ${usage.opens} opens',
+                              style: theme.textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                      ),
                     ),
-                    const SizedBox(width: 6),
-                    Text('•', style: theme.textTheme.bodySmall),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${usage.opens} opens',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    const Spacer(),
-                    Text(
-                      '$percent%',
-                      style: theme.textTheme.bodySmall,
-                    ),
+                    const SizedBox(width: 8),
+                    Text('$percent%', style: theme.textTheme.bodySmall),
                   ],
                 ),
                 const SizedBox(height: 8),

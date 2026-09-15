@@ -9,7 +9,6 @@
 .pub
 .pub-cache
 build/
-web/
 flutter/
 flutter.tar.xz
 .env
