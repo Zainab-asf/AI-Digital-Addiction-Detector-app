@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../models/usage_log.dart';
 import 'demo_data.dart';
+import 'usage_event_aggregator.dart';
 
 /// Result of a usage-data load, including which source was used.
 class UsageLoadResult {
@@ -40,6 +41,13 @@ class UsageService {
   Future<bool> hasUsageAccess() async {
     if (!isAndroid) return false;
     try {
+      final granted = await _channel.invokeMethod<bool>('hasUsageAccess');
+      if (granted != null) return granted;
+    } catch (_) {
+      // Older builds of the host app may not expose the check; fall through
+      // to probing for recorded activity instead.
+    }
+    try {
       final end = DateTime.now();
       final start = end.subtract(const Duration(hours: 24));
       final infos = await app_usage.AppUsage().getAppUsage(start, end);
@@ -64,6 +72,44 @@ class UsageService {
     return UsageLoadResult(days: DemoData.generate(days: days), isLive: false);
   }
 
+  /// Pulls raw foreground/background events for a window, or null when the
+  /// platform cannot supply them (no permission, older host, no data).
+  Future<List<UsageEvent>?> _fetchEvents(DateTime start, DateTime end) async {
+    try {
+      final raw = await _channel.invokeMethod<List<Object?>>(
+        'queryUsageEvents',
+        {
+          'startMillis': start.millisecondsSinceEpoch,
+          'endMillis': end.millisecondsSinceEpoch,
+        },
+      );
+      if (raw == null) return null;
+      final events = raw
+          .map(UsageEvent.fromPlatform)
+          .whereType<UsageEvent>()
+          .toList();
+      return events.isEmpty ? null : events;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Builds a day from real events when possible. Returns null to signal the
+  /// caller should fall back — never a fabricated day dressed as measured.
+  DailyUsage? _measuredDay(
+    DateTime dayStart,
+    List<UsageEvent> events,
+    DateTime now,
+  ) {
+    return UsageEventAggregator.aggregate(
+      dayStart: dayStart,
+      events: events,
+      now: now,
+      categoryOf: (pkg) => _resolve(pkg).category,
+      displayNameOf: (pkg) => _resolve(pkg).name,
+    );
+  }
+
   Future<List<DailyUsage>?> _fetchLive(int days) async {
     try {
       final now = DateTime.now();
@@ -73,6 +119,17 @@ class UsageService {
         final dayStart = today.subtract(Duration(days: offset));
         final dayEnd =
             offset == 0 ? now : dayStart.add(const Duration(days: 1));
+        // Prefer real event data: it yields measured minutes, genuine pickup
+        // counts and a real hourly histogram.
+        final events = await _fetchEvents(dayStart, dayEnd);
+        final measured =
+            events == null ? null : _measuredDay(dayStart, events, now);
+        if (measured != null) {
+          result.add(measured);
+          continue;
+        }
+        // No events for this day: keep the real totals from usage-stats, but
+        // leave the derived fields honestly marked as estimated.
         final infos =
             await app_usage.AppUsage().getAppUsage(dayStart, dayEnd);
         result.add(_mapDay(dayStart, infos));
