@@ -29,4 +29,8 @@ class AppConstants {
   static const String usersCollection = 'users';
   static const String usageCollection = 'usage_logs';
   static const String predictionsCollection = 'predictions';
+
+  /// Complete persisted [DailyUsage] documents, keyed by the day's own
+  /// dateKey. This is the durable history; `predictions` is a derived cache.
+  static const String usageDaysCollection = 'usageDays';
 }

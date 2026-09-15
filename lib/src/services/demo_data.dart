@@ -134,6 +134,7 @@ class DemoData {
       final opens = max(1, raw.round() + rng.nextInt(3) - 1);
       apps.add(
         AppUsage(
+          opensSource: UsageSource.demo,
           packageName: app.packageName,
           appName: app.name,
           category: app.category,
@@ -150,7 +151,13 @@ class DemoData {
     );
     final hourly = _distribute(realTotal, hourWeights, rng);
 
-    return DailyUsage(date: date, apps: apps, hourlyMinutes: hourly);
+    return DailyUsage(
+      date: date,
+      apps: apps,
+      hourlyMinutes: hourly,
+      source: UsageSource.demo,
+      hourlySource: UsageSource.demo,
+    );
   }
 
   /// Splits [total] across buckets weighted by [weights] while preserving

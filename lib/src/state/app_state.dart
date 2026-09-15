@@ -9,6 +9,7 @@ import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../services/preferences_service.dart';
 import '../services/scoring_engine.dart';
+import '../services/usage_repository.dart';
 import '../services/usage_service.dart';
 
 /// Central app store: auth session, screen-time data, derived scores and
@@ -19,10 +20,16 @@ class AppState extends ChangeNotifier {
     AuthService? auth,
     FirestoreService? firestore,
     UsageService? usage,
+    UsageRepository? repository,
   })  : _prefs = prefs,
         _auth = auth ?? AuthService(),
         _firestore = firestore ?? FirestoreService(),
-        _usage = usage ?? UsageService() {
+        _usage = usage ?? UsageService(),
+        _repository = repository ??
+            UsageRepository(
+              usage: usage ?? UsageService(),
+              firestore: firestore ?? FirestoreService(),
+            ) {
     _themeMode = prefs.themeMode;
     _dailyLimit = prefs.dailyLimitMinutes;
     _notifications = prefs.notificationsEnabled;
@@ -33,6 +40,7 @@ class AppState extends ChangeNotifier {
   final AuthService _auth;
   final FirestoreService _firestore;
   final UsageService _usage;
+  final UsageRepository _repository;
 
   StreamSubscription<User?>? _authSub;
 
@@ -108,7 +116,11 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await _usage.load(days: 14, preferDemo: _useDemoData);
+      final result = await _repository.load(
+        days: 14,
+        preferDemo: _useDemoData,
+        uid: _user?.uid,
+      );
       _history = result.days;
       _isLiveData = result.isLive;
       _prediction =
@@ -134,11 +146,15 @@ class AppState extends ChangeNotifier {
     final prediction = _prediction;
     final today = todayUsage;
     if (user == null || prediction == null || today == null) return;
+    // Scores derived from demo data are not worth persisting and must never
+    // overwrite scores computed from real device usage.
+    if (!today.isMeasured) return;
     try {
       await _firestore.saveWellnessSnapshot(
         uid: user.uid,
         prediction: prediction,
         screenMinutes: today.totalMinutes,
+        dateKey: today.dateKey,
       );
     } catch (_) {
       // Snapshot sync is best-effort; ignore network failures.

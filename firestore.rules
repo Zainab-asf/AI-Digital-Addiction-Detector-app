@@ -3,8 +3,9 @@ rules_version = '2';
 // LoopAware Firestore security rules.
 //
 // These mirror exactly what the client touches (see FirestoreService):
-//   users/{uid}                      -> get + set(merge)
-//   users/{uid}/predictions/{dateKey} -> set
+//   users/{uid}                       -> get + set(merge)
+//   users/{uid}/usageDays/{dateKey}   -> get + list + set   (durable history)
+//   users/{uid}/predictions/{dateKey} -> set                (derived cache)
 // Everything else is denied by the default-deny fallthrough.
 //
 // This project (`loopaware-app`) is dedicated to LoopAware, so these rules
@@ -25,6 +26,13 @@ service cloud.firestore {
       allow read, write: if request.auth != null
                          && request.auth.uid == userId;
 
+      // Durable per-day usage history.
+      match /usageDays/{dateKey} {
+        allow read, write: if request.auth != null
+                           && request.auth.uid == userId;
+      }
+
+      // Derived wellness scores, recomputable from usageDays.
       match /predictions/{dateKey} {
         allow read, write: if request.auth != null
                            && request.auth.uid == userId;

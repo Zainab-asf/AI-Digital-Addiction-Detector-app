@@ -93,6 +93,9 @@ class UsageService {
       final opens = (minutes / meta.session).round().clamp(1, 999);
       apps.add(
         AppUsage(
+          // The usage-stats API reports no pickup count; this is inferred
+          // from minutes and a per-category session length.
+          opensSource: UsageSource.estimated,
           packageName: info.packageName,
           appName: meta.name,
           category: meta.category,
@@ -105,7 +108,11 @@ class UsageService {
     return DailyUsage(
       date: date,
       apps: apps,
+      // Minutes are measured; the hourly curve is a fixed assumed shape,
+      // so it must not be presented as a real measurement.
       hourlyMinutes: _spreadHourly(total),
+      source: UsageSource.device,
+      hourlySource: UsageSource.estimated,
     );
   }
 

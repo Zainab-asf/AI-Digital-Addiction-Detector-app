@@ -34,6 +34,40 @@ enum AppCategory {
   }
 }
 
+/// Where a usage value came from. Lets the app distinguish measured data
+/// from values it derived or invented, so the two are never confused.
+enum UsageSource {
+  /// Read from the device's usage-stats API.
+  device('Device'),
+
+  /// Derived from measured data rather than measured directly (for example
+  /// open counts inferred from minutes, or an assumed hourly distribution).
+  estimated('Estimated'),
+
+  /// Seeded demo data. Not a real measurement of anything.
+  demo('Demo');
+
+  const UsageSource(this.label);
+
+  final String label;
+
+  /// Ranks sources by trustworthiness so a merge can pick a winner.
+  int get rank => switch (this) {
+    UsageSource.device => 2,
+    UsageSource.estimated => 1,
+    UsageSource.demo => 0,
+  };
+
+  bool get isReal => this == UsageSource.device;
+
+  static UsageSource fromName(String? name) {
+    return UsageSource.values.firstWhere(
+      (s) => s.name == name,
+      orElse: () => UsageSource.demo,
+    );
+  }
+}
+
 /// Usage of a single app over a single day.
 class AppUsage {
   const AppUsage({
@@ -42,6 +76,7 @@ class AppUsage {
     required this.category,
     required this.minutes,
     required this.opens,
+    this.opensSource = UsageSource.demo,
   });
 
   final String packageName;
@@ -54,6 +89,10 @@ class AppUsage {
   /// Number of times the app was opened (pickups).
   final int opens;
 
+  /// Where [opens] came from. The usage-stats API does not report pickup
+  /// counts, so on a real device this is [UsageSource.estimated].
+  final UsageSource opensSource;
+
   /// Average length of a single session, in minutes.
   double get averageSessionMinutes => opens == 0 ? 0 : minutes / opens;
 
@@ -63,6 +102,7 @@ class AppUsage {
     'category': category.name,
     'minutes': minutes,
     'opens': opens,
+    'opensSource': opensSource.name,
   };
 
   factory AppUsage.fromJson(Map<String, dynamic> json) => AppUsage(
@@ -71,6 +111,7 @@ class AppUsage {
     category: AppCategory.fromName(json['category'] as String?),
     minutes: (json['minutes'] as num?)?.toInt() ?? 0,
     opens: (json['opens'] as num?)?.toInt() ?? 0,
+    opensSource: UsageSource.fromName(json['opensSource'] as String?),
   );
 }
 
@@ -80,6 +121,8 @@ class DailyUsage {
     required this.date,
     required this.apps,
     required this.hourlyMinutes,
+    this.source = UsageSource.demo,
+    this.hourlySource = UsageSource.demo,
   });
 
   /// Calendar day (time component is normalized to midnight).
@@ -89,6 +132,22 @@ class DailyUsage {
 
   /// Minutes of usage per hour of the day. Always length 24.
   final List<int> hourlyMinutes;
+
+  /// Where this day's per-app minutes came from. [UsageSource.device] means
+  /// the totals were measured on the device.
+  final UsageSource source;
+
+  /// Where [hourlyMinutes] came from. The usage-stats API reports per-app
+  /// totals but no hourly breakdown, so on a real device this is
+  /// [UsageSource.estimated] — [nightMinutes] and [peakHour] derive from it
+  /// and inherit that accuracy.
+  final UsageSource hourlySource;
+
+  /// True when the per-app minutes were actually measured on this device.
+  bool get isMeasured => source.isReal;
+
+  /// True when hourly figures ([nightMinutes], [peakHour]) are trustworthy.
+  bool get hasMeasuredHours => hourlySource.isReal;
 
   /// Total foreground minutes across all apps.
   int get totalMinutes =>
@@ -149,6 +208,9 @@ class DailyUsage {
     'date': date.toIso8601String(),
     'apps': apps.map((a) => a.toJson()).toList(),
     'hourlyMinutes': hourlyMinutes,
+    'source': source.name,
+    'hourlySource': hourlySource.name,
+    'dateKey': dateKey,
   };
 
   factory DailyUsage.fromJson(Map<String, dynamic> json) {
@@ -163,6 +225,18 @@ class DailyUsage {
           .map((e) => AppUsage.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList(),
       hourlyMinutes: hourly,
+      source: UsageSource.fromName(json['source'] as String?),
+      hourlySource: UsageSource.fromName(json['hourlySource'] as String?),
+    );
+  }
+
+  DailyUsage copyWith({UsageSource? source, UsageSource? hourlySource}) {
+    return DailyUsage(
+      date: date,
+      apps: apps,
+      hourlyMinutes: hourlyMinutes,
+      source: source ?? this.source,
+      hourlySource: hourlySource ?? this.hourlySource,
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../config/app_constants.dart';
 import '../models/prediction.dart';
+import '../models/usage_log.dart';
 
 /// Reads and writes LoopAware user data in Cloud Firestore.
 ///
@@ -56,18 +57,17 @@ class FirestoreService {
     await users.doc(uid).set(data, SetOptions(merge: true));
   }
 
-  /// Persists a daily wellness snapshot so progress survives reinstalls.
+  /// Persists a derived wellness snapshot. [dateKey] must come from the day
+  /// the scores describe, never from DateTime.now() — a refresh just after
+  /// midnight would otherwise file yesterday's scores under today.
   Future<void> saveWellnessSnapshot({
     required String uid,
     required Prediction prediction,
     required int screenMinutes,
+    required String dateKey,
   }) async {
     final users = _users;
     if (users == null) return;
-    final now = DateTime.now();
-    final dateKey =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-'
-        '${now.day.toString().padLeft(2, '0')}';
     await users
         .doc(uid)
         .collection(AppConstants.predictionsCollection)
@@ -81,5 +81,41 @@ class FirestoreService {
           'screenMinutes': screenMinutes,
           'updatedAt': FieldValue.serverTimestamp(),
         });
+  }
+
+  /// Persists one complete [DailyUsage] under its own dateKey.
+  ///
+  /// Demo days are refused outright: a browser session must never be able to
+  /// overwrite usage that was measured on a real device.
+  Future<void> saveUsageDay({
+    required String uid,
+    required DailyUsage day,
+  }) async {
+    final users = _users;
+    if (users == null) return;
+    if (!day.isMeasured) return;
+    await users
+        .doc(uid)
+        .collection(AppConstants.usageDaysCollection)
+        .doc(day.dateKey)
+        .set({...day.toJson(), 'updatedAt': FieldValue.serverTimestamp()});
+  }
+
+  /// Loads persisted usage days, newest first, as the durable history.
+  Future<List<DailyUsage>> loadUsageDays({
+    required String uid,
+    int limit = 60,
+  }) async {
+    final users = _users;
+    if (users == null) return const [];
+    final snap = await users
+        .doc(uid)
+        .collection(AppConstants.usageDaysCollection)
+        .orderBy('dateKey', descending: true)
+        .limit(limit)
+        .get();
+    return snap.docs
+        .map((d) => DailyUsage.fromJson(d.data()))
+        .toList(growable: false);
   }
 }

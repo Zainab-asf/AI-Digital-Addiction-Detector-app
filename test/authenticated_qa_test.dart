@@ -11,6 +11,7 @@ import 'package:loopaware/src/config/app_theme.dart';
 import 'package:loopaware/src/models/prediction.dart';
 import 'package:loopaware/src/screens/main/home_shell.dart';
 import 'package:loopaware/src/services/auth_service.dart';
+import 'package:loopaware/src/models/usage_log.dart';
 import 'package:loopaware/src/services/demo_data.dart';
 import 'package:loopaware/src/services/firestore_service.dart';
 import 'package:loopaware/src/services/preferences_service.dart';
@@ -70,8 +71,9 @@ class _RecordingFirestore extends FirestoreService {
     required String uid,
     required Prediction prediction,
     required int screenMinutes,
+    required String dateKey,
   }) async {
-    calls.add('saveWellnessSnapshot:$uid:$screenMinutes');
+    calls.add('saveWellnessSnapshot:$uid:$screenMinutes:$dateKey');
     final err = throwOnWrite;
     if (err != null) throw err;
   }
@@ -105,8 +107,21 @@ class _FakeUsage extends UsageService {
         );
       case 'throw':
         throw StateError('usage source unavailable');
+      case 'device':
+        return UsageLoadResult(
+          days: DemoData.generate(days: days)
+              .map((d) => d.copyWith(
+                    source: UsageSource.device,
+                    hourlySource: UsageSource.estimated,
+                  ))
+              .toList(),
+          isLive: true,
+        );
       default:
-        return UsageLoadResult(days: DemoData.generate(days: days), isLive: true);
+        return UsageLoadResult(
+          days: DemoData.generate(days: days),
+          isLive: false,
+        );
     }
   }
 }
@@ -175,9 +190,25 @@ void main() {
     });
   });
 
-  testWidgets('writes a Firestore snapshot after loading while signed in', (
+  testWidgets('writes a Firestore snapshot for measured device data', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(375, 812));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final state = await signedInState(usageMode: 'device');
+    await tester.pumpWidget(shell(state));
+    await tester.pumpAndSettle();
+
+    expect(
+      firestore.calls.where((c) => c.startsWith('saveWellnessSnapshot')),
+      isNotEmpty,
+      reason: 'measured data should persist a snapshot',
+    );
+    state.dispose();
+  });
+
+  testWidgets('does NOT write a snapshot for demo data', (tester) async {
     await tester.binding.setSurfaceSize(const Size(375, 812));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -187,8 +218,8 @@ void main() {
 
     expect(
       firestore.calls.where((c) => c.startsWith('saveWellnessSnapshot')),
-      isNotEmpty,
-      reason: 'signed-in refresh should persist a snapshot',
+      isEmpty,
+      reason: 'a demo refresh must never overwrite real scores',
     );
     state.dispose();
   });
@@ -199,7 +230,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(375, 812));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final state = await signedInState();
+    final state = await signedInState(usageMode: 'device');
     firestore.throwOnWrite = StateError('permission-denied');
     await tester.pumpWidget(shell(state));
     await tester.pumpAndSettle();
