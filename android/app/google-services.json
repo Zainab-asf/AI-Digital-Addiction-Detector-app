@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "350342186992",
-    "project_id": "gearup-6cb27",
-    "storage_bucket": "gearup-6cb27.firebasestorage.app"
+    "project_number": "794933903353",
+    "project_id": "loopaware-app",
+    "storage_bucket": "loopaware-app.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:350342186992:android:45fe467df6ec88aa263f35",
+        "mobilesdk_app_id": "1:794933903353:android:f8927022f2e595962f0728",
         "android_client_info": {
           "package_name": "com.example.login"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBrWb283RfJP1C6Zd0cDln2OSKTHBOtxYI"
+          "current_key": "AIzaSyAxqgjHViuV9Jnhv8p3--6oLxR8b1drLw0"
         }
       ],
       "services": {

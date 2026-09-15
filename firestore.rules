@@ -7,19 +7,12 @@ rules_version = '2';
 //   users/{uid}/predictions/{dateKey} -> set
 // Everything else is denied by the default-deny fallthrough.
 //
-// ─────────────────────────────────────────────────────────────────────────
-// BEFORE DEPLOYING, READ THIS.
-//
-// Firebase project `gearup-6cb27` is SHARED with at least one other app
-// (the GearUp Garage project this repo was forked from). These rules cover
-// only LoopAware's collections, so deploying them as-is will DENY access to
-// any collection the sibling app uses. Merge this with that app's rules
-// before running:
+// This project (`loopaware-app`) is dedicated to LoopAware, so these rules
+// cover every collection in it. Deploy with:
 //
 //   firebase deploy --only firestore:rules
 //
-// This file is not deployed automatically by the Vercel build.
-// ─────────────────────────────────────────────────────────────────────────
+// Not deployed automatically by the Vercel build.
 
 service cloud.firestore {
   match /databases/{database}/documents {

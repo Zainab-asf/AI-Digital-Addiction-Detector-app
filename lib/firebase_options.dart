@@ -41,19 +41,19 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDEger4Jmzpcrv-_62Ens7_WYy92wwol9Y',
-    appId: '1:350342186992:web:1819cc76514c5809263f35',
-    messagingSenderId: '350342186992',
-    projectId: 'gearup-6cb27',
-    authDomain: 'gearup-6cb27.firebaseapp.com',
-    storageBucket: 'gearup-6cb27.firebasestorage.app',
+    apiKey: 'AIzaSyAw4Z6q51nv3ibvNkrRCH_aEfuPZZZpDA8',
+    appId: '1:794933903353:web:b4d9ac671f8b9caa2f0728',
+    messagingSenderId: '794933903353',
+    projectId: 'loopaware-app',
+    authDomain: 'loopaware-app.firebaseapp.com',
+    storageBucket: 'loopaware-app.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBrWb283RfJP1C6Zd0cDln2OSKTHBOtxYI',
-    appId: '1:350342186992:android:45fe467df6ec88aa263f35',
-    messagingSenderId: '350342186992',
-    projectId: 'gearup-6cb27',
-    storageBucket: 'gearup-6cb27.firebasestorage.app',
+    apiKey: 'AIzaSyAxqgjHViuV9Jnhv8p3--6oLxR8b1drLw0',
+    appId: '1:794933903353:android:f8927022f2e595962f0728',
+    messagingSenderId: '794933903353',
+    projectId: 'loopaware-app',
+    storageBucket: 'loopaware-app.firebasestorage.app',
   );
 }

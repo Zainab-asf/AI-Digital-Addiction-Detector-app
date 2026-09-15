@@ -3,17 +3,17 @@
     "platforms": {
       "android": {
         "default": {
-          "projectId": "gearup-6cb27",
-          "appId": "1:350342186992:android:45fe467df6ec88aa263f35",
+          "projectId": "loopaware-app",
+          "appId": "1:794933903353:android:f8927022f2e595962f0728",
           "fileOutput": "android/app/google-services.json"
         }
       },
       "dart": {
         "lib/firebase_options.dart": {
-          "projectId": "gearup-6cb27",
+          "projectId": "loopaware-app",
           "configurations": {
-            "android": "1:350342186992:android:45fe467df6ec88aa263f35",
-            "web": "1:350342186992:web:1819cc76514c5809263f35"
+            "android": "1:794933903353:android:f8927022f2e595962f0728",
+            "web": "1:794933903353:web:b4d9ac671f8b9caa2f0728"
           }
         }
       }
