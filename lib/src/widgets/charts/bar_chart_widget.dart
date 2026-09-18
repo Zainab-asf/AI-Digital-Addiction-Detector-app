@@ -1,6 +1,6 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../../config/app_theme.dart';
 import '../../utils/formatters.dart';
 
 /// One bar in [UsageBarChart].
@@ -16,123 +16,109 @@ class UsageBarItem {
   final Color color;
 }
 
-/// Vertical bar chart used for category and "minutes by X" comparisons.
+/// Ranked horizontal bars: label and duration above each bar, bar length
+/// relative to the largest item. Reads cleanly at any width, unlike vertical
+/// bars whose category labels collide on phones.
 class UsageBarChart extends StatelessWidget {
-  const UsageBarChart({
-    super.key,
-    required this.items,
-    this.height = 220,
-  });
+  const UsageBarChart({super.key, required this.items, this.emptyHeight = 120});
 
   final List<UsageBarItem> items;
+  final double emptyHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return SizedBox(height: emptyHeight);
+    final theme = Theme.of(context);
+    final c = AppColors.of(context);
+    final maxMinutes = items
+        .map((e) => e.minutes)
+        .reduce((a, b) => a > b ? a : b);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(height: 14),
+          Semantics(
+            label:
+                '${items[i].label}: '
+                '${Formatters.duration(items[i].minutes)}',
+            excludeSemantics: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        items[i].label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: c.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      Formatters.duration(items[i].minutes),
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: c.textPrimary,
+                        fontFeatures: AppTheme.tabular,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ShareBar(
+                  value: maxMinutes == 0 ? 0 : items[i].minutes / maxMinutes,
+                  color: items[i].color,
+                  height: 8,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// A rounded proportional bar on a muted track.
+class ShareBar extends StatelessWidget {
+  const ShareBar({
+    super.key,
+    required this.value,
+    required this.color,
+    this.height = 6,
+  });
+
+  /// 0..1.
+  final double value;
+  final Color color;
   final double height;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    if (items.isEmpty) {
-      return SizedBox(height: height);
-    }
-
-    final maxMinutes =
-        items.map((e) => e.minutes).reduce((a, b) => a > b ? a : b).toDouble();
-    final yMax = ((maxMinutes / 60) * 1.25).clamp(0.5, 24.0).ceilToDouble();
-    final yInterval = yMax <= 4 ? 1.0 : (yMax / 4).ceilToDouble();
-    final labelStyle = theme.textTheme.bodySmall ?? const TextStyle();
-    final gridColor =
-        theme.colorScheme.onSurface.withValues(alpha: 0.06);
-
-    return SizedBox(
+    final c = AppColors.of(context);
+    final v = value.clamp(0.0, 1.0);
+    return Container(
       height: height,
-      child: BarChart(
-        BarChartData(
-          alignment: BarChartAlignment.spaceAround,
-          maxY: yMax,
-          minY: 0,
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: yInterval,
-            getDrawingHorizontalLine: (_) =>
-                FlLine(color: gridColor, strokeWidth: 1),
+      decoration: BoxDecoration(
+        color: c.surfaceMuted,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      alignment: Alignment.centerLeft,
+      child: FractionallySizedBox(
+        widthFactor: v == 0 ? 0 : v.clamp(0.02, 1.0),
+        heightFactor: 1,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(999),
           ),
-          borderData: FlBorderData(show: false),
-          titlesData: FlTitlesData(
-            topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 36,
-                interval: yInterval,
-                getTitlesWidget: (value, meta) {
-                  if (value == 0) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: Text(
-                      '${value.toStringAsFixed(0)}h',
-                      style: labelStyle,
-                    ),
-                  );
-                },
-              ),
-            ),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 36,
-                interval: 1,
-                getTitlesWidget: (value, meta) {
-                  final i = value.toInt();
-                  if (i < 0 || i >= items.length) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      items[i].label,
-                      style: labelStyle,
-                      textAlign: TextAlign.center,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          barTouchData: BarTouchData(
-            touchTooltipData: BarTouchTooltipData(
-              getTooltipColor: (_) =>
-                  theme.colorScheme.surface.withValues(alpha: 0.96),
-              tooltipBorder: BorderSide(color: theme.dividerColor),
-              getTooltipItem: (group, _, rod, __) {
-                final i = group.x.toInt();
-                if (i < 0 || i >= items.length) return null;
-                final item = items[i];
-                return BarTooltipItem(
-                  '${item.label}\n${Formatters.duration(item.minutes)}',
-                  theme.textTheme.bodyMedium ?? const TextStyle(),
-                );
-              },
-            ),
-          ),
-          barGroups: [
-            for (var i = 0; i < items.length; i++)
-              BarChartGroupData(
-                x: i,
-                barRods: [
-                  BarChartRodData(
-                    toY: items[i].minutes / 60,
-                    color: items[i].color,
-                    width: 18,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(6),
-                    ),
-                  ),
-                ],
-              ),
-          ],
         ),
       ),
     );

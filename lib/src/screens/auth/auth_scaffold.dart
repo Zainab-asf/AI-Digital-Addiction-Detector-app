@@ -44,7 +44,7 @@ class AuthScaffold extends StatelessWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      gradient: AppTheme.calmGradient,
+                      color: AppTheme.primary,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(

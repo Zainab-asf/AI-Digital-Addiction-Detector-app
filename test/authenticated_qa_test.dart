@@ -160,7 +160,9 @@ void main() {
 
   const sizes = <String, Size>{
     'mobile-375': Size(375, 812),
+    'tablet-768': Size(768, 1024),
     'desktop-1024': Size(1024, 768),
+    'desktop-1440': Size(1440, 900),
   };
 
   sizes.forEach((sizeName, size) {

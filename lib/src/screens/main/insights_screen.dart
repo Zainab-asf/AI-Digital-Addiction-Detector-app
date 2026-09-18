@@ -4,104 +4,192 @@ import 'package:provider/provider.dart';
 import '../../config/app_theme.dart';
 import '../../models/prediction.dart';
 import '../../state/app_state.dart';
+import '../../utils/formatters.dart';
 import '../../widgets/cards/insight_card.dart';
+import '../../widgets/charts/bar_chart_widget.dart';
 import '../../widgets/charts/score_ring.dart';
+import '../../widgets/common/app_card.dart';
 import '../../widgets/common/empty_state.dart';
+import '../../widgets/common/page_scaffold.dart';
+import '../../widgets/common/responsive_grid.dart';
 import '../../widgets/common/section_header.dart';
+import '../../widgets/common/status_badge.dart';
 import '../coach/coach_screen.dart';
 
 class InsightsScreen extends StatelessWidget {
   const InsightsScreen({super.key});
+
+  static void _openCoach(BuildContext context) => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const CoachScreen()));
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final prediction = state.prediction;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Insights')),
-      body: RefreshIndicator(
-        onRefresh: () => state.refreshUsage(),
-        child:
-            prediction == null
-                ? ListView(
-                  children: [
-                    const SizedBox(height: 80),
-                    EmptyState(
-                      icon: Icons.lightbulb_outline_rounded,
-                      title: 'No insights yet',
-                      message:
-                          'We need a day of data before we can spot patterns.',
-                      actionLabel: 'Refresh',
-                      onAction: () => state.refreshUsage(),
-                    ),
-                  ],
+    return PageScaffold(
+      title: 'Insights',
+      subtitle:
+          prediction == null
+              ? 'Patterns detected on-device from your usage'
+              : 'Patterns detected on-device from today\'s usage · updated '
+                  '${Formatters.time(prediction.generatedAt)}',
+      onRefresh: () => state.refreshUsage(),
+      actions:
+          (layout) => [
+            if (prediction != null && !layout.compact)
+              OutlinedButton.icon(
+                onPressed: () => _openCoach(context),
+                icon: const Icon(Icons.forum_outlined, size: 18),
+                label: const Text('Ask the coach'),
+              ),
+          ],
+      builder: (context, layout) {
+        if (prediction == null) {
+          return [
+            const SizedBox(height: 48),
+            EmptyState(
+              icon: Icons.lightbulb_outline_rounded,
+              title: state.loadingData ? 'Analysing usage…' : 'No insights yet',
+              message:
+                  'Insights appear once there is a day of usage data to '
+                  'look at.',
+              actionLabel: state.loadingData ? null : 'Refresh',
+              onAction: state.loadingData ? null : () => state.refreshUsage(),
+            ),
+          ];
+        }
+
+        final gap = layout.gap;
+        final ordered = prediction.prioritisedInsights;
+        final attention = ordered.where((i) => !i.positive).toList();
+        final positive = ordered.where((i) => i.positive).toList();
+        final twoUp = layout.width >= 900;
+
+        final metrics = [
+          for (final m in [
+            prediction.addiction,
+            prediction.focus,
+            prediction.sleepImpact,
+            prediction.burnoutRisk,
+          ])
+            _MetricCard(metric: m),
+        ];
+
+        final overview =
+            layout.width >= 1100
+                ? ResponsiveGrid(
+                  columns: 5,
+                  flex: const [6, 4, 4, 4, 4],
+                  spacing: gap,
+                  children: [_WellnessCard(prediction: prediction), ...metrics],
                 )
-                : ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+                : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _WellnessHeader(prediction: prediction),
-                    const SizedBox(height: 18),
-                    _MetricsGrid(prediction: prediction),
-                    const SizedBox(height: 24),
-                    SectionHeader(
-                      title: 'What we noticed today',
-                      subtitle:
-                          '${prediction.insights.length} insights · prioritised',
+                    _WellnessCard(prediction: prediction),
+                    SizedBox(height: gap),
+                    ResponsiveGrid(
+                      columns:
+                          layout.width >= 720
+                              ? 4
+                              : (layout.width >= 320 ? 2 : 1),
+                      spacing: gap,
+                      children: metrics,
                     ),
-                    const SizedBox(height: 12),
-                    for (final insight in prediction.prioritisedInsights) ...[
-                      InsightCard(insight: insight),
-                      const SizedBox(height: 12),
-                    ],
-                    const SizedBox(height: 6),
-                    _TalkToCoachButton(),
                   ],
-                ),
-      ),
+                );
+
+        return [
+          overview,
+          SizedBox(height: layout.compact ? 24 : 32),
+          SectionHeader(
+            title: 'Needs attention',
+            count: attention.length,
+            subtitle: attention.length < 2 ? null : 'Highest priority first',
+          ),
+          const SizedBox(height: 12),
+          if (attention.isEmpty)
+            const _AllClear()
+          else
+            ResponsiveGrid(
+              columns: twoUp && attention.length > 1 ? 2 : 1,
+              spacing: gap,
+              children: [
+                for (final insight in attention)
+                  InsightCard(
+                    insight: insight,
+                    // Side-by-side labels need roughly 520px of card width.
+                    sideLabels:
+                        (!layout.compact && !twoUp) || layout.width >= 1100,
+                  ),
+              ],
+            ),
+          if (positive.isNotEmpty) ...[
+            SizedBox(height: layout.compact ? 24 : 32),
+            SectionHeader(title: 'Going well', count: positive.length),
+            const SizedBox(height: 12),
+            ResponsiveGrid(
+              columns: twoUp && positive.length > 1 ? 2 : 1,
+              spacing: gap,
+              children: [
+                for (final insight in positive) InsightCard(insight: insight),
+              ],
+            ),
+          ],
+          if (layout.compact) ...[
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+              ),
+              onPressed: () => _openCoach(context),
+              icon: const Icon(Icons.forum_outlined, size: 18),
+              label: const Text('Talk to the wellness coach'),
+            ),
+          ],
+        ];
+      },
     );
   }
 }
 
-class _WellnessHeader extends StatelessWidget {
-  const _WellnessHeader({required this.prediction});
+class _WellnessCard extends StatelessWidget {
+  const _WellnessCard({required this.prediction});
 
   final Prediction prediction;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = prediction.wellnessSeverity.color;
-    return Container(
+    final c = AppColors.of(context);
+    final severity = prediction.wellnessSeverity;
+    return AppCard(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.30)),
-      ),
       child: Row(
         children: [
           ScoreRing(
             score: prediction.wellnessScore,
-            color: color,
-            size: 90,
+            color: c.severity(severity).solid,
+            size: 80,
             strokeWidth: 8,
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('Overall wellness', style: theme.textTheme.bodySmall),
+                Text('Overall wellness', style: theme.textTheme.labelMedium),
                 const SizedBox(height: 2),
                 Text(
                   prediction.wellnessLabel,
-                  style: theme.textTheme.titleLarge?.copyWith(color: color),
+                  style: theme.textTheme.titleLarge?.copyWith(fontSize: 20),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
-                  'A blended view of addiction, focus, sleep and burnout '
-                  'signals from today.',
+                  'Blends addiction, focus, sleep and burnout signals.',
                   style: theme.textTheme.bodySmall,
                 ),
               ],
@@ -113,136 +201,57 @@ class _WellnessHeader extends StatelessWidget {
   }
 }
 
-class _MetricsGrid extends StatelessWidget {
-  const _MetricsGrid({required this.prediction});
-
-  final Prediction prediction;
-
-  @override
-  Widget build(BuildContext context) {
-    final metrics = [
-      prediction.addiction,
-      prediction.focus,
-      prediction.sleepImpact,
-      prediction.burnoutRisk,
-    ];
-    final tiles = metrics.map((m) => _MetricTile(metric: m)).toList();
-
-    Widget pair(Widget left, Widget right) => IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(child: left),
-          const SizedBox(width: 12),
-          Expanded(child: right),
-        ],
-      ),
-    );
-
-    // Tile height follows its content rather than a fixed aspect ratio, and
-    // below ~360px two tiles side by side leave too little room for the
-    // labels, so they stack instead.
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 360) {
-          return Column(
-            children: [
-              for (var i = 0; i < tiles.length; i++) ...[
-                if (i > 0) const SizedBox(height: 12),
-                tiles[i],
-              ],
-            ],
-          );
-        }
-        return Column(
-          children: [
-            pair(tiles[0], tiles[1]),
-            const SizedBox(height: 12),
-            pair(tiles[2], tiles[3]),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({required this.metric});
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({required this.metric});
 
   final ScoreMetric metric;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = metric.severity.color;
-    final steady = metric.isSteady;
-    final improving = metric.isImproving;
-    final trendIcon =
-        steady
-            ? Icons.remove_rounded
-            : metric.higherIsBetter
-            ? (improving
-                ? Icons.trending_up_rounded
-                : Icons.trending_down_rounded)
-            : (improving
-                ? Icons.trending_down_rounded
-                : Icons.trending_up_rounded);
-    final trendColor =
-        steady
-            ? theme.colorScheme.onSurface.withValues(alpha: 0.6)
-            : (improving ? AppTheme.good : AppTheme.severe);
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: theme.dividerColor),
-      ),
-      child: Row(
+    final c = AppColors.of(context);
+    final tone = c.severity(metric.severity);
+    return AppCard(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          ScoreRing(
-            score: metric.score,
-            color: color,
-            size: 64,
-            strokeWidth: 7,
+          Text(
+            metric.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  metric.label,
-                  style: theme.textTheme.bodySmall,
-                  overflow: TextOverflow.ellipsis,
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                '${metric.score}',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontSize: 26,
+                  height: 1.2,
+                  fontFeatures: AppTheme.tabular,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  metric.severity.label,
-                  style: theme.textTheme.titleSmall?.copyWith(color: color),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: TrendLabel.metric(metric),
                 ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Icon(trendIcon, color: trendColor, size: 14),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        steady
-                            ? 'Steady'
-                            : '${metric.delta > 0 ? '+' : ''}${metric.delta.toStringAsFixed(0)}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: trendColor,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ShareBar(value: metric.score / 100, color: tone.solid, height: 4),
+          const SizedBox(height: 8),
+          Text(
+            '${metric.severity.label} · '
+            '${metric.higherIsBetter ? 'higher' : 'lower'} is better',
+            maxLines: 2,
+            style: theme.textTheme.bodySmall,
           ),
         ],
       ),
@@ -250,16 +259,27 @@ class _MetricTile extends StatelessWidget {
   }
 }
 
-class _TalkToCoachButton extends StatelessWidget {
+class _AllClear extends StatelessWidget {
+  const _AllClear();
+
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed:
-          () => Navigator.of(
-            context,
-          ).push(MaterialPageRoute(builder: (_) => const CoachScreen())),
-      icon: const Icon(Icons.self_improvement_rounded),
-      label: const Text('Talk to the wellness coach'),
+    final theme = Theme.of(context);
+    final c = AppColors.of(context);
+    return AppCard(
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle_outline_rounded, color: c.good.solid),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Nothing needs your attention today.',
+              style: theme.textTheme.bodyMedium?.copyWith(color: c.textPrimary),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

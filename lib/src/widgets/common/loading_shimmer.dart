@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
-/// Lightweight shimmer placeholder. Uses an animated gradient instead of
-/// pulling in an extra shimmer package.
+import '../../config/app_theme.dart';
+
+/// Lightweight skeleton placeholder with a slow, subtle pulse. Uses an
+/// animated opacity instead of pulling in a shimmer package.
 class LoadingShimmer extends StatefulWidget {
   const LoadingShimmer({
     super.key,
     this.height = 16,
     this.width = double.infinity,
-    this.borderRadius = 12,
+    this.borderRadius = 8,
   });
 
   final double height;
@@ -22,8 +24,8 @@ class _LoadingShimmerState extends State<LoadingShimmer>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1200),
-  )..repeat();
+    duration: const Duration(milliseconds: 1100),
+  )..repeat(reverse: true);
 
   @override
   void dispose() {
@@ -33,37 +35,61 @@ class _LoadingShimmerState extends State<LoadingShimmer>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final base = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : Colors.black.withValues(alpha: 0.06);
-    final highlight = isDark
-        ? Colors.white.withValues(alpha: 0.18)
-        : Colors.white.withValues(alpha: 0.85);
-
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final t = _controller.value;
-        return Container(
-          height: widget.height,
-          width: widget.width,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(widget.borderRadius),
-            gradient: LinearGradient(
-              begin: Alignment(-1.0 + 2 * t, 0),
-              end: Alignment(0.0 + 2 * t, 0),
-              colors: [base, highlight, base],
-              stops: const [0.0, 0.5, 1.0],
-            ),
-          ),
-        );
-      },
+    final c = AppColors.of(context);
+    return FadeTransition(
+      opacity: Tween<double>(
+        begin: 1,
+        end: 0.55,
+      ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
+      child: Container(
+        height: widget.height,
+        width: widget.width,
+        decoration: BoxDecoration(
+          color: c.isDark ? c.surfaceMuted : c.borderSubtle,
+          borderRadius: BorderRadius.circular(widget.borderRadius),
+        ),
+      ),
     );
   }
 }
 
-/// Convenience: a vertical stack of shimmering placeholder bars.
+/// Skeleton of a standard card: a label, a large value and a detail line,
+/// framed like [AppCard] so the layout doesn't jump when data arrives.
+class SkeletonCard extends StatelessWidget {
+  const SkeletonCard({super.key, this.height = 120, this.lines = 2});
+
+  final double height;
+  final int lines;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    return Container(
+      height: height,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(color: c.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const LoadingShimmer(height: 12, width: 96),
+          const SizedBox(height: 12),
+          const LoadingShimmer(height: 26, width: 140),
+          const Spacer(),
+          for (var i = 0; i < lines; i++) ...[
+            if (i > 0) const SizedBox(height: 8),
+            LoadingShimmer(height: 10, width: i.isEven ? double.infinity : 160),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Convenience: a vertical stack of skeleton list rows.
 class ShimmerList extends StatelessWidget {
   const ShimmerList({super.key, this.count = 4});
 
@@ -74,9 +100,24 @@ class ShimmerList extends StatelessWidget {
     return Column(
       children: List.generate(
         count,
-        (i) => Padding(
-          padding: const EdgeInsets.only(bottom: 14),
-          child: LoadingShimmer(height: 64, borderRadius: 18),
+        (i) => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              LoadingShimmer(height: 36, width: 36, borderRadius: 10),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LoadingShimmer(height: 12, width: 120),
+                    SizedBox(height: 8),
+                    LoadingShimmer(height: 6),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

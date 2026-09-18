@@ -28,7 +28,7 @@ void showAppSnackBar(
           ),
         ],
       ),
-      backgroundColor: isError ? AppTheme.severe : AppTheme.primaryDark,
+      backgroundColor: isError ? AppTheme.severe : null,
     ),
   );
 }

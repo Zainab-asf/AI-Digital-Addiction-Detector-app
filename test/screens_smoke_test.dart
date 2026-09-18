@@ -46,7 +46,7 @@ Future<void> main() async {
 
   // Overflows are width-dependent, so cover a small phone as well as a large
   // one. 320 is the narrowest width Android phones still ship.
-  const widths = <double>[320, 430];
+  const widths = <double>[320, 430, 768, 1280];
 
   screens.forEach((name, screen) {
     for (final width in widths) {

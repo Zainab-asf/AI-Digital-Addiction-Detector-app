@@ -38,26 +38,25 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       body: Container(
         width: double.infinity,
-        decoration: BoxDecoration(gradient: AppTheme.calmGradient),
+        color: AppTheme.primary,
         child: SafeArea(
           child: Column(
             children: [
               const Spacer(),
               Container(
-                width: 132,
-                height: 132,
+                width: 88,
+                height: 88,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(24),
+                  color: Colors.white.withValues(alpha: 0.12),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.35),
-                    width: 2,
+                    color: Colors.white.withValues(alpha: 0.28),
                   ),
                 ),
                 child: const Icon(
                   Icons.all_inclusive_rounded,
                   color: Colors.white,
-                  size: 70,
+                  size: 52,
                 ),
               ),
               const SizedBox(height: 28),
@@ -66,7 +65,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 style: theme.textTheme.displaySmall?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
+                  letterSpacing: -0.5,
                 ),
               ),
               const SizedBox(height: 10),

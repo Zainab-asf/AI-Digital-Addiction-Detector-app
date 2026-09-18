@@ -152,15 +152,19 @@ class _DemoModeNotice extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.info.withValues(alpha: 0.10),
+        color: AppColors.of(context).info.soft,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppTheme.info.withValues(alpha: 0.32),
+          color: AppColors.of(context).info.soft,
         ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.info_outline_rounded, color: AppTheme.info, size: 18),
+          Icon(
+            Icons.info_outline_rounded,
+            color: AppColors.of(context).info.onSoft,
+            size: 18,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

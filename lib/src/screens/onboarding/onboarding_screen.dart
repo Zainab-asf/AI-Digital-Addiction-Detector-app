@@ -106,7 +106,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      gradient: AppTheme.calmGradient,
+                      color: AppTheme.primary,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
@@ -141,23 +141,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
-                          width: 160,
-                          height: 160,
+                          width: 112,
+                          height: 112,
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                AppTheme.primary.withValues(alpha: 0.18),
-                                AppTheme.secondary.withValues(alpha: 0.18),
-                              ],
-                            ),
+                            color: AppColors.of(context).primarySoft,
+                            borderRadius: BorderRadius.circular(28),
                           ),
                           child: Icon(
                             slide.icon,
-                            color: AppTheme.primary,
-                            size: 76,
+                            color: AppColors.of(context).onPrimarySoft,
+                            size: 52,
                           ),
                         ),
                         const SizedBox(height: 36),
