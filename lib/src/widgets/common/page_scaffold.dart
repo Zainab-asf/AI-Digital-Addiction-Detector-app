@@ -15,7 +15,11 @@ class PageScaffold extends StatelessWidget {
     this.actions,
     this.onRefresh,
     this.maxWidth = 1200,
+    this.showBack = false,
   });
+
+  /// Adds a back link above the title, for pages pushed over the tabs.
+  final bool showBack;
 
   final String title;
   final String? overline;
@@ -58,6 +62,25 @@ class PageScaffold extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        if (showBack && Navigator.of(context).canPop()) ...[
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: () => Navigator.of(context).maybePop(),
+                              icon: const Icon(
+                                Icons.arrow_back_rounded,
+                                size: 18,
+                              ),
+                              label: const Text('Back'),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                         PageHeader(
                           title: title,
                           overline: overline,

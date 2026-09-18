@@ -17,6 +17,7 @@ import '../../widgets/common/page_scaffold.dart';
 import '../../widgets/common/responsive_grid.dart';
 import '../../widgets/common/segmented_control.dart';
 import '../../widgets/common/status_badge.dart';
+import '../weekly/weekly_report_screen.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -53,7 +54,24 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       onRefresh: () => state.refreshUsage(),
       actions:
           (layout) => [
-            if (history.isNotEmpty && !layout.compact) periodPicker(),
+            if (history.isNotEmpty && layout.compact)
+              IconButton.outlined(
+                tooltip: 'Weekly report',
+                onPressed:
+                    () =>
+                        Navigator.of(context).push(WeeklyReportScreen.route()),
+                icon: const Icon(Icons.date_range_outlined, size: 18),
+              ),
+            if (history.isNotEmpty && !layout.compact) ...[
+              OutlinedButton.icon(
+                onPressed:
+                    () =>
+                        Navigator.of(context).push(WeeklyReportScreen.route()),
+                icon: const Icon(Icons.date_range_outlined, size: 18),
+                label: const Text('Weekly report'),
+              ),
+              periodPicker(),
+            ],
           ],
       builder: (context, layout) {
         if (history.isEmpty) {

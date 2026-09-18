@@ -3,10 +3,13 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../config/app_constants.dart';
+import '../models/focus_session.dart';
 import '../models/prediction.dart';
 import '../models/usage_log.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
+import '../services/notification_service.dart';
 import '../services/preferences_service.dart';
 import '../services/scoring_engine.dart';
 import '../services/usage_repository.dart';
@@ -21,7 +24,9 @@ class AppState extends ChangeNotifier {
     FirestoreService? firestore,
     UsageService? usage,
     UsageRepository? repository,
+    NotificationService? notifications,
   })  : _prefs = prefs,
+        _notifier = notifications ?? NotificationService(),
         _auth = auth ?? AuthService(),
         _firestore = firestore ?? FirestoreService(),
         _usage = usage ?? UsageService(),
@@ -34,6 +39,11 @@ class AppState extends ChangeNotifier {
     _dailyLimit = prefs.dailyLimitMinutes;
     _notifications = prefs.notificationsEnabled;
     _useDemoData = prefs.useDemoData;
+    _bedtimeReminder = prefs.bedtimeReminderEnabled;
+    _reminderMinutes = prefs.reminderMinutes;
+    _goalAlerts = prefs.goalAlertsEnabled;
+    _appLimits = prefs.appLimits;
+    _focusSessions = prefs.focusSessions;
   }
 
   final PreferencesService _prefs;
@@ -41,6 +51,7 @@ class AppState extends ChangeNotifier {
   final FirestoreService _firestore;
   final UsageService _usage;
   final UsageRepository _repository;
+  final NotificationService _notifier;
 
   StreamSubscription<User?>? _authSub;
 
@@ -49,6 +60,11 @@ class AppState extends ChangeNotifier {
   late int _dailyLimit;
   late bool _notifications;
   late bool _useDemoData;
+  late bool _bedtimeReminder;
+  late int _reminderMinutes;
+  late bool _goalAlerts;
+  late Map<String, int> _appLimits;
+  late List<FocusSession> _focusSessions;
 
   // Session
   User? _user;
@@ -73,6 +89,7 @@ class AppState extends ChangeNotifier {
       }
       notifyListeners();
     });
+    unawaited(_syncBedtimeReminder());
   }
 
   // --- Settings getters ---
@@ -81,6 +98,20 @@ class AppState extends ChangeNotifier {
   bool get notificationsEnabled => _notifications;
   bool get useDemoData => _useDemoData;
   bool get onboardingDone => _prefs.onboardingDone;
+  bool get bedtimeReminderEnabled => _bedtimeReminder;
+  TimeOfDay get reminderTime =>
+      TimeOfDay(hour: _reminderMinutes ~/ 60, minute: _reminderMinutes % 60);
+  bool get goalAlertsEnabled => _goalAlerts;
+
+  /// Whether this device can show reminders (Android only).
+  bool get remindersSupported => _notifier.isSupported;
+  NotificationService get notifier => _notifier;
+
+  /// Daily limits by package name.
+  Map<String, int> get appLimits => Map.unmodifiable(_appLimits);
+
+  /// Completed and ended-early focus sessions, oldest first.
+  List<FocusSession> get focusSessions => List.unmodifiable(_focusSessions);
 
   // --- Session getters ---
   bool get isAuthenticated => _user != null;
@@ -139,6 +170,58 @@ class AppState extends ChangeNotifier {
     }
 
     unawaited(_saveSnapshot());
+    unawaited(_checkUsageAlerts());
+  }
+
+  /// Notifies once per day when today's measured usage passes the daily
+  /// goal or an app limit. Demo data never triggers alerts.
+  Future<void> _checkUsageAlerts() async {
+    final today = todayUsage;
+    if (today == null ||
+        !_isLiveData ||
+        !today.isMeasured ||
+        !_notifier.isSupported ||
+        !_notifications ||
+        !_goalAlerts) {
+      return;
+    }
+    try {
+      final day = today.dateKey;
+      final goalKey = 'goal:$day';
+      if (today.totalMinutes > _dailyLimit && !_prefs.alertSent(goalKey)) {
+        await _notifier.showGoalExceeded(
+          totalMinutes: today.totalMinutes,
+          goalMinutes: _dailyLimit,
+        );
+        await _prefs.recordAlertSent(goalKey, day);
+      }
+      final limited = today.apps
+          .where((a) => (_appLimits[a.packageName] ?? 1 << 30) < a.minutes)
+          .toList();
+      for (var i = 0; i < limited.length; i++) {
+        final app = limited[i];
+        final key = 'limit:${app.packageName}:$day';
+        if (_prefs.alertSent(key)) continue;
+        await _notifier.showAppLimitExceeded(
+          index: i,
+          appName: app.appName,
+          minutes: app.minutes,
+          limitMinutes: _appLimits[app.packageName]!,
+        );
+        await _prefs.recordAlertSent(key, day);
+      }
+    } catch (error) {
+      debugPrint('Usage alert check failed: $error');
+    }
+  }
+
+  Future<void> _syncBedtimeReminder() async {
+    if (!_notifier.isSupported) return;
+    if (_notifications && _bedtimeReminder) {
+      await _notifier.scheduleBedtimeReminder(reminderTime);
+    } else {
+      await _notifier.cancelBedtimeReminder();
+    }
   }
 
   Future<void> _saveSnapshot() async {
@@ -232,6 +315,50 @@ class AppState extends ChangeNotifier {
     _notifications = value;
     notifyListeners();
     await _prefs.setNotificationsEnabled(value);
+    if (value) await _notifier.requestPermission();
+    await _syncBedtimeReminder();
+  }
+
+  Future<void> setBedtimeReminderEnabled(bool value) async {
+    _bedtimeReminder = value;
+    notifyListeners();
+    await _prefs.setBedtimeReminderEnabled(value);
+    await _syncBedtimeReminder();
+  }
+
+  Future<void> setReminderTime(TimeOfDay time) async {
+    _reminderMinutes = time.hour * 60 + time.minute;
+    notifyListeners();
+    await _prefs.setReminderMinutes(_reminderMinutes);
+    await _syncBedtimeReminder();
+  }
+
+  Future<void> setGoalAlertsEnabled(bool value) async {
+    _goalAlerts = value;
+    notifyListeners();
+    await _prefs.setGoalAlertsEnabled(value);
+  }
+
+  /// Sets (or with null, removes) the daily limit for [packageName].
+  Future<void> setAppLimit(String packageName, int? minutes) async {
+    final next = Map<String, int>.from(_appLimits);
+    if (minutes == null) {
+      next.remove(packageName);
+    } else {
+      next[packageName] = minutes;
+    }
+    _appLimits = next;
+    notifyListeners();
+    await _prefs.setAppLimits(next);
+  }
+
+  Future<void> addFocusSession(FocusSession session) async {
+    final next = [..._focusSessions, session];
+    const max = AppConstants.maxStoredFocusSessions;
+    _focusSessions =
+        next.length > max ? next.sublist(next.length - max) : next;
+    notifyListeners();
+    await _prefs.setFocusSessions(_focusSessions);
   }
 
   Future<void> setUseDemoData(bool value) async {

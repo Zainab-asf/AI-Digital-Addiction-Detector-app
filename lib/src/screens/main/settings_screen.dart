@@ -12,6 +12,7 @@ import '../../widgets/common/app_card.dart';
 import '../../widgets/common/page_scaffold.dart';
 import '../../widgets/common/segmented_control.dart';
 import '../../widgets/common/status_badge.dart';
+import '../limits/app_limits_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -45,12 +46,25 @@ class SettingsScreen extends StatelessWidget {
           section(
             'Goals',
             'Targets LoopAware uses to grade your day.',
-            const _DailyGoalCard(),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _DailyGoalCard(),
+                SizedBox(height: 12),
+                _AppLimitsLink(),
+              ],
+            ),
           ),
           SizedBox(height: sectionGap),
           section(
-            'Preferences',
-            'Appearance and reminders.',
+            'Reminders',
+            'Notifications that help you stick to your goals.',
+            const _RemindersCard(),
+          ),
+          SizedBox(height: sectionGap),
+          section(
+            'Appearance',
+            'How LoopAware looks on this device.',
             _PreferencesCard(stackControls: narrowRows),
           ),
           SizedBox(height: sectionGap),
@@ -456,19 +470,126 @@ class _PreferencesCard extends StatelessWidget {
         _SettingRow(
           title: 'Theme',
           subtitle: 'Match your device, or choose one.',
+          showDivider: false,
           trailing: stackControls ? null : picker,
           below: stackControls ? picker : null,
         ),
+      ],
+    );
+  }
+}
+
+class _RemindersCard extends StatelessWidget {
+  const _RemindersCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final c = AppColors.of(context);
+    final on = state.notificationsEnabled;
+    final supported = state.remindersSupported;
+
+    Future<void> pickTime() async {
+      final picked = await showTimePicker(
+        context: context,
+        initialTime: state.reminderTime,
+        helpText: 'Wind-down reminder',
+      );
+      if (picked != null) await state.setReminderTime(picked);
+    }
+
+    return _GroupCard(
+      children: [
         _SettingRow(
           title: 'Wellness reminders',
-          subtitle: 'Daily nudges, focus check-ins and bedtime alerts.',
-          showDivider: false,
-          trailing: Switch(
-            value: state.notificationsEnabled,
-            onChanged: state.setNotificationsEnabled,
+          subtitle:
+              supported
+                  ? 'Allow LoopAware to send notifications.'
+                  : 'Notifications are delivered by the Android app. Your '
+                      'choices here are saved.',
+          showDivider: on,
+          trailing: Switch(value: on, onChanged: state.setNotificationsEnabled),
+          onTap: () => state.setNotificationsEnabled(!on),
+        ),
+        if (on) ...[
+          _SettingRow(
+            title: 'Wind-down reminder',
+            subtitle:
+                'A nightly nudge to put the phone away before the '
+                '10pm window that affects sleep.',
+            trailing: Switch(
+              value: state.bedtimeReminderEnabled,
+              onChanged: state.setBedtimeReminderEnabled,
+            ),
+            onTap:
+                () => state.setBedtimeReminderEnabled(
+                  !state.bedtimeReminderEnabled,
+                ),
           ),
-          onTap:
-              () => state.setNotificationsEnabled(!state.notificationsEnabled),
+          if (state.bedtimeReminderEnabled)
+            _SettingRow(
+              title: 'Reminder time',
+              subtitle: 'Every day at this time.',
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    state.reminderTime.format(context),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: c.primary,
+                      fontFeatures: AppTheme.tabular,
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: c.textTertiary,
+                  ),
+                ],
+              ),
+              onTap: pickTime,
+            ),
+          _SettingRow(
+            title: 'Usage alerts',
+            subtitle:
+                'Once a day when you pass your daily goal or an app '
+                'limit. Uses real device data only.',
+            showDivider: false,
+            trailing: Switch(
+              value: state.goalAlertsEnabled,
+              onChanged: state.setGoalAlertsEnabled,
+            ),
+            onTap: () => state.setGoalAlertsEnabled(!state.goalAlertsEnabled),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _AppLimitsLink extends StatelessWidget {
+  const _AppLimitsLink();
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final c = AppColors.of(context);
+    final count = state.appLimits.length;
+    return _GroupCard(
+      children: [
+        _SettingRow(
+          title: 'App limits',
+          subtitle:
+              count == 0
+                  ? 'Set a daily budget for individual apps.'
+                  : '$count ${count == 1 ? 'app has' : 'apps have'} a daily limit.',
+          showDivider: false,
+          trailing: Icon(
+            Icons.chevron_right_rounded,
+            size: 20,
+            color: c.textTertiary,
+          ),
+          onTap: () => Navigator.of(context).push(AppLimitsScreen.route()),
         ),
       ],
     );

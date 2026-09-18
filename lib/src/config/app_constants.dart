@@ -24,6 +24,19 @@ class AppConstants {
   static const String prefDailyLimit = 'daily_limit_minutes';
   static const String prefNotifications = 'notifications_enabled';
   static const String prefUseDemoData = 'use_demo_data';
+  static const String prefBedtimeReminder = 'bedtime_reminder_enabled';
+  static const String prefReminderMinutes = 'bedtime_reminder_minutes';
+  static const String prefGoalAlerts = 'goal_alerts_enabled';
+  static const String prefSentAlerts = 'sent_alert_keys';
+  static const String prefAppLimits = 'app_limits';
+  static const String prefFocusSessions = 'focus_sessions';
+
+  /// Default wind-down reminder: 9:30pm, half an hour before the
+  /// [nightUsageStartHour] window that counts against sleep.
+  static const int defaultReminderMinutes = 21 * 60 + 30;
+
+  /// Focus sessions kept on the device (oldest dropped first).
+  static const int maxStoredFocusSessions = 200;
 
   // Firestore collections
   static const String usersCollection = 'users';

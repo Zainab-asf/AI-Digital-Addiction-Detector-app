@@ -19,7 +19,12 @@ import '../../widgets/common/loading_shimmer.dart';
 import '../../widgets/common/page_scaffold.dart';
 import '../../widgets/common/responsive_grid.dart';
 import '../../widgets/common/status_badge.dart';
+import '../../services/scoring_engine.dart';
+import '../../widgets/charts/bar_chart_widget.dart';
 import '../coach/coach_screen.dart';
+import '../focus/focus_screen.dart';
+import '../limits/app_limits_screen.dart';
+import '../weekly/weekly_report_screen.dart';
 import 'home_shell.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -131,7 +136,17 @@ class DashboardScreen extends StatelessWidget {
                         ),
                       ),
             );
-    const coach = _CoachCard();
+    final coach = _ToolsCard(
+      focusMinutes: ScoringEngine.suggestedFocusMinutes(today),
+    );
+    final limits =
+        state.appLimits.isEmpty
+            ? null
+            : _AppLimitsCard(
+              today: today,
+              history: history,
+              limits: state.appLimits,
+            );
 
     if (layout.wide) {
       return [
@@ -163,6 +178,7 @@ class DashboardScreen extends StatelessWidget {
             ),
           ],
         ),
+        if (limits != null) ...[SizedBox(height: gap), limits],
       ];
     }
 
@@ -181,6 +197,7 @@ class DashboardScreen extends StatelessWidget {
       stats,
       SizedBox(height: gap),
       topApps,
+      if (limits != null) ...[SizedBox(height: gap), limits],
       if (recommendation != null) ...[SizedBox(height: gap), recommendation],
       SizedBox(height: gap),
       coach,
@@ -685,46 +702,223 @@ class _TopAppsCard extends StatelessWidget {
   }
 }
 
-class _CoachCard extends StatelessWidget {
-  const _CoachCard();
+/// Shortcuts to the focus timer, weekly report and wellness coach.
+class _ToolsCard extends StatelessWidget {
+  const _ToolsCard({required this.focusMinutes});
+
+  /// Suggested focus-block length for today.
+  final int focusMinutes;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    final nav = Navigator.of(context);
+    final tools = [
+      (
+        icon: Icons.timer_outlined,
+        title: 'Focus session',
+        subtitle: 'Start a ${Formatters.duration(focusMinutes)} block',
+        open: () => nav.push(FocusScreen.route()),
+      ),
+      (
+        icon: Icons.date_range_outlined,
+        title: 'Weekly report',
+        subtitle: 'This week against last week',
+        open: () => nav.push(WeeklyReportScreen.route()),
+      ),
+      (
+        icon: Icons.forum_outlined,
+        title: 'Wellness coach',
+        subtitle: 'A plan for the rest of today',
+        open:
+            () => nav.push(
+              MaterialPageRoute<void>(builder: (_) => const CoachScreen()),
+            ),
+      ),
+    ];
+
+    return AppCard(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg - 1),
+        child: Material(
+          type: MaterialType.transparency,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < tools.length; i++)
+                InkWell(
+                  onTap: tools[i].open,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 11,
+                    ),
+                    decoration: BoxDecoration(
+                      border:
+                          i == tools.length - 1
+                              ? null
+                              : Border(
+                                bottom: BorderSide(color: c.borderSubtle),
+                              ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: c.primarySoft,
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radiusMd,
+                            ),
+                          ),
+                          child: Icon(
+                            tools[i].icon,
+                            color: c.onPrimarySoft,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                tools[i].title,
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              Text(
+                                tools[i].subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: c.textTertiary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Today's use of each app that has a daily limit.
+class _AppLimitsCard extends StatelessWidget {
+  const _AppLimitsCard({
+    required this.today,
+    required this.history,
+    required this.limits,
+  });
+
+  /// Used to name apps with a limit that have not been opened today.
+  final List<DailyUsage> history;
+
+  final DailyUsage today;
+  final Map<String, int> limits;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final c = AppColors.of(context);
-    void open() => Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const CoachScreen()));
+    final byPackage = {for (final a in today.apps) a.packageName: a};
+    final known = {
+      for (final day in history)
+        for (final a in day.apps) a.packageName: a,
+    };
+    final rows =
+        limits.entries.map((e) {
+            final app = byPackage[e.key];
+            return (
+              name: (app ?? known[e.key])?.appName ?? e.key,
+              category: (app ?? known[e.key])?.category ?? AppCategory.other,
+              used: app?.minutes ?? 0,
+              limit: e.value,
+            );
+          }).toList()
+          ..sort((a, b) => (b.used / b.limit).compareTo(a.used / a.limit));
+    final over = rows.where((r) => r.used > r.limit).length;
 
     return AppCard(
-      padding: const EdgeInsets.fromLTRB(18, 16, 16, 16),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: c.primarySoft,
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-            ),
-            child: Icon(Icons.forum_outlined, color: c.onPrimarySoft, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Wellness coach', style: theme.textTheme.titleSmall),
-                const SizedBox(height: 2),
-                Text(
-                  'A plan for the rest of today, based on your usage.',
-                  style: theme.textTheme.bodySmall,
-                ),
-              ],
+          CardHeader(
+            title: 'App limits',
+            subtitle:
+                over == 0
+                    ? 'All apps within their limits today'
+                    : '$over ${over == 1 ? 'app is' : 'apps are'} over the limit',
+            trailing: TextButton(
+              onPressed:
+                  () => Navigator.of(context).push(AppLimitsScreen.route()),
+              style: TextButton.styleFrom(
+                minimumSize: const Size(0, 32),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              child: const Text('Manage'),
             ),
           ),
-          const SizedBox(width: 12),
-          OutlinedButton(onPressed: open, child: const Text('Open')),
+          const SizedBox(height: 6),
+          for (var i = 0; i < rows.length; i++)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                border:
+                    i == rows.length - 1
+                        ? null
+                        : Border(bottom: BorderSide(color: c.borderSubtle)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          rows[i].name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall,
+                        ),
+                      ),
+                      Text(
+                        '${Formatters.duration(rows[i].used)} / '
+                        '${Formatters.duration(rows[i].limit)}',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color:
+                              rows[i].used > rows[i].limit
+                                  ? c.critical.onSoft
+                                  : c.textPrimary,
+                          fontFeatures: AppTheme.tabular,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ShareBar(
+                    value: rows[i].used / rows[i].limit,
+                    color:
+                        rows[i].used > rows[i].limit
+                            ? c.critical.solid
+                            : c.category(rows[i].category),
+                    height: 6,
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
